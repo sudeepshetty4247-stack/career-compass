@@ -1,45 +1,55 @@
 import { Rocket, BookOpen, Target, Trophy, ArrowRight } from "lucide-react";
+import { AnalysisResult } from "@/hooks/useResumeAnalysis";
 
-const roadmapSteps = [
+interface CareerRoadmapProps {
+  data: AnalysisResult;
+}
+
+const phaseConfig = [
   {
     phase: "Short-Term",
-    duration: "0-3 Months",
     icon: BookOpen,
     color: "from-cyan-400 to-cyan-600",
-    goals: [
-      "Complete Statistics fundamentals course",
-      "Learn Power BI basics",
-      "Build 2-3 data analysis projects",
-      "Create GitHub portfolio",
-    ],
   },
   {
     phase: "Mid-Term",
-    duration: "3-6 Months",
     icon: Target,
     color: "from-violet-400 to-violet-600",
-    goals: [
-      "Advanced Excel & Power BI",
-      "Learn basic Machine Learning",
-      "Complete 1 real-world project",
-      "Earn relevant certification",
-    ],
   },
   {
     phase: "Long-Term",
-    duration: "6-12 Months",
     icon: Trophy,
     color: "from-emerald-400 to-emerald-600",
-    goals: [
-      "Apply for Data Analyst roles",
-      "Build domain expertise",
-      "Contribute to open-source",
-      "Target: Business Analyst / Data Analyst",
-    ],
   },
 ];
 
-const CareerRoadmap = () => {
+const CareerRoadmap = ({ data }: CareerRoadmapProps) => {
+  const { roadmap, careerPredictions, skills } = data;
+  const topPrediction = careerPredictions[0];
+  
+  const roadmapSteps = [
+    {
+      ...phaseConfig[0],
+      duration: "0-3 Months",
+      goals: roadmap?.shortTerm?.map(item => item.goal) || ["Build foundational skills", "Create learning plan"],
+    },
+    {
+      ...phaseConfig[1],
+      duration: "3-6 Months",
+      goals: roadmap?.midTerm?.map(item => item.goal) || ["Deepen expertise", "Work on projects"],
+    },
+    {
+      ...phaseConfig[2],
+      duration: "6-12 Months",
+      goals: roadmap?.longTerm?.map(item => item.goal) || ["Apply for roles", "Build domain expertise"],
+    },
+  ];
+
+  const topSkills = skills
+    .filter(s => s.proficiency >= 50)
+    .slice(0, 3)
+    .map(s => s.name);
+
   return (
     <section id="roadmap" className="py-24 relative bg-card/30">
       <div className="container px-4">
@@ -56,7 +66,7 @@ const CareerRoadmap = () => {
               Your <span className="text-gradient-primary">Career Path</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              A customized learning roadmap to reach your career goals in Data Analytics
+              A customized learning roadmap to reach your career goals in {topPrediction?.domain || "your target field"}
             </p>
           </div>
 
@@ -122,22 +132,26 @@ const CareerRoadmap = () => {
           {/* Summary card */}
           <div className="mt-16 glass-card rounded-3xl p-8 md:p-10 text-center">
             <h3 className="font-display text-2xl font-bold mb-4">
-              🎯 Target Role: <span className="text-gradient-primary">Data Analyst</span>
+              🎯 Target Role: <span className="text-gradient-primary">
+                {topPrediction?.topRoles?.[0] || topPrediction?.domain || "Your Dream Role"}
+              </span>
             </h3>
             <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
-              Following this roadmap, you can be job-ready for entry-level Data Analyst positions 
-              within 6-9 months. Focus on consistent learning and building a strong portfolio.
+              Following this roadmap, you can be job-ready for entry-level{" "}
+              {topPrediction?.domain || "positions"} roles within 6-9 months. 
+              Focus on consistent learning and building a strong portfolio.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
-              <span className="px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
-                Python • SQL • Power BI
-              </span>
-              <span className="px-4 py-2 rounded-full bg-accent/10 text-accent text-sm font-medium">
-                Statistics • Data Visualization
-              </span>
-              <span className="px-4 py-2 rounded-full bg-secondary text-secondary-foreground text-sm font-medium">
-                Problem Solving
-              </span>
+              {topSkills.length > 0 && (
+                <span className="px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                  {topSkills.join(" • ")}
+                </span>
+              )}
+              {data.skillGaps?.slice(0, 2).map((gap, i) => (
+                <span key={i} className="px-4 py-2 rounded-full bg-accent/10 text-accent text-sm font-medium">
+                  Learn: {gap.skill}
+                </span>
+              ))}
             </div>
           </div>
         </div>

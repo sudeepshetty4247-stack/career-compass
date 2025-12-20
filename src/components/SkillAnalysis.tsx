@@ -1,17 +1,21 @@
-import { CheckCircle2, AlertCircle, ArrowUpRight } from "lucide-react";
+import { CheckCircle2, AlertCircle, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { AnalysisResult } from "@/hooks/useResumeAnalysis";
 
-const skills = [
-  { name: "Python", level: 85, category: "strong", contribution: "+24%" },
-  { name: "SQL", level: 78, category: "strong", contribution: "+18%" },
-  { name: "Data Analysis", level: 72, category: "strong", contribution: "+15%" },
-  { name: "Excel", level: 65, category: "moderate", contribution: "+8%" },
-  { name: "Statistics", level: 35, category: "gap", contribution: "-5%" },
-  { name: "Power BI", level: 20, category: "gap", contribution: "-3%" },
-];
+interface SkillAnalysisProps {
+  data: AnalysisResult;
+}
 
-const SkillAnalysis = () => {
-  const strongSkills = skills.filter(s => s.category === "strong");
-  const gapSkills = skills.filter(s => s.category === "gap");
+const SkillAnalysis = ({ data }: SkillAnalysisProps) => {
+  const strongSkills = data.skills.filter(s => s.proficiency >= 60);
+  const gapSkills = data.skillGaps || [];
+  const readinessScore = data.readinessScore || 0;
+
+  const getReadinessLabel = (score: number) => {
+    if (score >= 80) return "High Readiness";
+    if (score >= 60) return "Moderate Readiness";
+    if (score >= 40) return "Building Readiness";
+    return "Early Stage";
+  };
 
   return (
     <section id="skills" className="py-24 relative bg-card/30">
@@ -36,12 +40,12 @@ const SkillAnalysis = () => {
                 </div>
                 <div>
                   <h3 className="font-display text-xl font-bold">Your Strengths</h3>
-                  <p className="text-sm text-muted-foreground">Skills driving your prediction</p>
+                  <p className="text-sm text-muted-foreground">{strongSkills.length} skills identified</p>
                 </div>
               </div>
 
               <div className="space-y-5">
-                {strongSkills.map((skill, index) => (
+                {strongSkills.slice(0, 5).map((skill, index) => (
                   <div 
                     key={skill.name}
                     className="animate-slide-up"
@@ -52,19 +56,24 @@ const SkillAnalysis = () => {
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-primary flex items-center gap-1">
                           <ArrowUpRight className="w-3 h-3" />
-                          {skill.contribution}
+                          {skill.category}
                         </span>
-                        <span className="text-muted-foreground">{skill.level}%</span>
+                        <span className="text-muted-foreground">{skill.proficiency}%</span>
                       </div>
                     </div>
                     <div className="h-2 bg-secondary rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-gradient-success rounded-full progress-animate"
-                        style={{ width: `${skill.level}%` }}
+                        style={{ width: `${skill.proficiency}%` }}
                       />
                     </div>
                   </div>
                 ))}
+                {strongSkills.length === 0 && (
+                  <p className="text-muted-foreground text-center py-4">
+                    No strong skills detected yet. Keep building your expertise!
+                  </p>
+                )}
               </div>
             </div>
 
@@ -81,46 +90,54 @@ const SkillAnalysis = () => {
               </div>
 
               <div className="space-y-5">
-                {gapSkills.map((skill, index) => (
+                {gapSkills.slice(0, 4).map((gap, index) => (
                   <div 
-                    key={skill.name}
+                    key={gap.skill}
                     className="animate-slide-up"
                     style={{ animationDelay: `${index * 0.1}s` }}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">{skill.name}</span>
+                      <span className="font-medium">{gap.skill}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-accent">{skill.contribution}</span>
-                        <span className="text-muted-foreground">{skill.level}%</span>
+                        <span className={`text-sm px-2 py-0.5 rounded-full ${
+                          gap.importance === "high" 
+                            ? "bg-destructive/10 text-destructive" 
+                            : gap.importance === "medium"
+                              ? "bg-accent/20 text-accent"
+                              : "bg-secondary text-muted-foreground"
+                        }`}>
+                          {gap.importance}
+                        </span>
                       </div>
                     </div>
-                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-accent rounded-full progress-animate"
-                        style={{ width: `${skill.level}%` }}
-                      />
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {skill.name === "Statistics" && "Essential for advanced data analysis roles"}
-                      {skill.name === "Power BI" && "Popular visualization tool in industry"}
+                    <p className="text-sm text-muted-foreground">
+                      {gap.reason}
                     </p>
                   </div>
                 ))}
+                {gapSkills.length === 0 && (
+                  <p className="text-muted-foreground text-center py-4">
+                    No significant skill gaps identified. Great job!
+                  </p>
+                )}
               </div>
 
-              <div className="mt-6 pt-6 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  💡 <span className="text-foreground font-medium">Tip:</span> Focus on Statistics first - 
-                  it provides the foundation for many data analytics concepts.
-                </p>
-              </div>
+              {gapSkills.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-border">
+                  <p className="text-sm text-muted-foreground">
+                    💡 <span className="text-foreground font-medium">Tip:</span> Focus on{" "}
+                    {gapSkills.find(g => g.importance === "high")?.skill || gapSkills[0]?.skill || "key skills"}{" "}
+                    first - it will have the biggest impact on your career readiness.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Readiness Score */}
           <div className="mt-8 glass-card rounded-3xl p-8 text-center">
             <h3 className="font-display text-xl font-bold mb-4">Career Readiness Score</h3>
-            <div className="flex items-center justify-center gap-8">
+            <div className="flex items-center justify-center gap-8 flex-wrap">
               <div className="relative w-32 h-32">
                 <svg className="w-full h-full transform -rotate-90">
                   <circle
@@ -139,7 +156,7 @@ const SkillAnalysis = () => {
                     strokeWidth="8"
                     fill="none"
                     strokeLinecap="round"
-                    strokeDasharray={`${63 * 3.52} 352`}
+                    strokeDasharray={`${readinessScore * 3.52} 352`}
                   />
                   <defs>
                     <linearGradient id="readinessGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -149,15 +166,18 @@ const SkillAnalysis = () => {
                   </defs>
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="font-display text-3xl font-bold">63%</span>
+                  <span className="font-display text-3xl font-bold">{readinessScore}%</span>
                 </div>
               </div>
               <div className="text-left">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-2">
-                  Moderate Readiness
+                  {getReadinessLabel(readinessScore)}
                 </div>
                 <p className="text-muted-foreground max-w-xs">
-                  You're on the right track! Improve skill gaps to increase your readiness to 80%+
+                  {readinessScore >= 70 
+                    ? "You're well-prepared for your target career! Focus on specialization."
+                    : `You're on the right track! Improve skill gaps to increase your readiness to ${Math.min(readinessScore + 20, 100)}%+`
+                  }
                 </p>
               </div>
             </div>

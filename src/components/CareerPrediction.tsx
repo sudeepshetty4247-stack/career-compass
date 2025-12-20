@@ -1,12 +1,21 @@
 import { TrendingUp, Award, Target } from "lucide-react";
+import { AnalysisResult } from "@/hooks/useResumeAnalysis";
 
-const predictions = [
-  { domain: "Data Analytics", probability: 72, color: "from-cyan-400 to-cyan-600" },
-  { domain: "Machine Learning", probability: 18, color: "from-violet-400 to-violet-600" },
-  { domain: "Software Development", probability: 10, color: "from-emerald-400 to-emerald-600" },
+interface CareerPredictionProps {
+  data: AnalysisResult;
+}
+
+const predictionColors = [
+  "from-cyan-400 to-cyan-600",
+  "from-violet-400 to-violet-600",
+  "from-emerald-400 to-emerald-600",
+  "from-amber-400 to-amber-600",
+  "from-rose-400 to-rose-600",
 ];
 
-const CareerPrediction = () => {
+const CareerPrediction = ({ data }: CareerPredictionProps) => {
+  const topPrediction = data.careerPredictions[0];
+  
   return (
     <section id="prediction" className="py-24 relative">
       <div className="container px-4">
@@ -23,7 +32,7 @@ const CareerPrediction = () => {
               Your <span className="text-gradient-primary">Career Match</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Based on your skills, experience, and education, here's your career domain analysis
+              Based on your skills, experience, and education, here's your personalized career domain analysis
             </p>
           </div>
 
@@ -37,20 +46,30 @@ const CareerPrediction = () => {
                   Best Match
                 </div>
                 <h3 className="font-display text-4xl md:text-5xl font-bold text-gradient-primary mb-4">
-                  Data Analytics
+                  {topPrediction?.domain || "Career Domain"}
                 </h3>
                 <p className="text-muted-foreground text-lg mb-6">
-                  Your profile strongly aligns with data analytics roles. Your Python and SQL skills 
-                  are highly valued in this domain.
+                  {topPrediction?.description || "Your profile aligns with this career domain."}
                 </p>
-                <div className="flex items-center gap-4 justify-center md:justify-start">
+                <div className="flex items-center gap-4 justify-center md:justify-start flex-wrap">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-primary" />
                     <span className="font-semibold">High Demand</span>
                   </div>
-                  <div className="w-px h-6 bg-border" />
-                  <span className="text-muted-foreground">Entry-Level Friendly</span>
+                  <div className="w-px h-6 bg-border hidden sm:block" />
+                  <span className="text-muted-foreground">
+                    {data.experience?.level === "fresher" ? "Entry-Level Friendly" : `${data.experience?.level} Level`}
+                  </span>
                 </div>
+                {topPrediction?.topRoles && topPrediction.topRoles.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
+                    {topPrediction.topRoles.map((role, i) => (
+                      <span key={i} className="px-3 py-1 rounded-full bg-secondary text-sm text-muted-foreground">
+                        {role}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Right side - Circular progress */}
@@ -72,9 +91,8 @@ const CareerPrediction = () => {
                     strokeWidth="12"
                     fill="none"
                     strokeLinecap="round"
-                    strokeDasharray={`${72 * 5.02} 502`}
+                    strokeDasharray={`${(topPrediction?.probability || 0) * 5.02} 502`}
                     className="transition-all duration-1000 ease-out"
-                    style={{ animationDelay: '0.5s' }}
                   />
                   <defs>
                     <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -85,7 +103,9 @@ const CareerPrediction = () => {
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
-                    <span className="font-display text-5xl font-bold text-gradient-primary">72%</span>
+                    <span className="font-display text-5xl font-bold text-gradient-primary">
+                      {topPrediction?.probability || 0}%
+                    </span>
                     <p className="text-sm text-muted-foreground">Match Score</p>
                   </div>
                 </div>
@@ -95,7 +115,7 @@ const CareerPrediction = () => {
 
           {/* All predictions */}
           <div className="grid md:grid-cols-3 gap-4">
-            {predictions.map((prediction, index) => (
+            {data.careerPredictions.map((prediction, index) => (
               <div 
                 key={prediction.domain}
                 className="glass-card rounded-2xl p-6 hover:border-primary/30 transition-all duration-300 animate-slide-up"
@@ -107,10 +127,15 @@ const CareerPrediction = () => {
                 </div>
                 <div className="h-3 bg-secondary rounded-full overflow-hidden">
                   <div 
-                    className={`h-full bg-gradient-to-r ${prediction.color} rounded-full progress-animate`}
+                    className={`h-full bg-gradient-to-r ${predictionColors[index % predictionColors.length]} rounded-full progress-animate`}
                     style={{ width: `${prediction.probability}%` }}
                   />
                 </div>
+                {prediction.topRoles && prediction.topRoles.length > 0 && (
+                  <p className="text-sm text-muted-foreground mt-3">
+                    {prediction.topRoles.slice(0, 2).join(", ")}
+                  </p>
+                )}
               </div>
             ))}
           </div>

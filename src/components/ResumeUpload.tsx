@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, CheckCircle2, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 interface ResumeUploadProps {
-  onAnalyze: () => void;
+  onAnalyze: (resumeText: string) => void;
+  isAnalyzing: boolean;
 }
 
-const ResumeUpload = ({ onAnalyze }: ResumeUploadProps) => {
+const ResumeUpload = ({ onAnalyze, isAnalyzing }: ResumeUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [extractedText, setExtractedText] = useState<string>("");
+  const [processingStep, setProcessingStep] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -21,28 +25,70 @@ const ResumeUpload = ({ onAnalyze }: ResumeUploadProps) => {
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const extractTextFromFile = async (file: File): Promise<string> => {
+    // For text files, read directly
+    if (file.type === "text/plain") {
+      return await file.text();
+    }
+    
+    // For other files, we'll need the user to paste text
+    // In a real app, you'd use a PDF parser library
+    return "";
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    setError(null);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
+      const droppedFile = e.dataTransfer.files[0];
+      setFile(droppedFile);
+      
+      const text = await extractTextFromFile(droppedFile);
+      if (text) {
+        setExtractedText(text);
+      }
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+      
+      const text = await extractTextFromFile(selectedFile);
+      if (text) {
+        setExtractedText(text);
+      }
     }
   };
 
-  const handleAnalyze = () => {
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      onAnalyze();
-    }, 2500);
+  const handleAnalyze = async () => {
+    if (!extractedText.trim()) {
+      setError("Please paste your resume content in the text area below");
+      return;
+    }
+
+    // Animate through processing steps
+    setProcessingStep(1);
+    await new Promise(r => setTimeout(r, 500));
+    setProcessingStep(2);
+    await new Promise(r => setTimeout(r, 500));
+    setProcessingStep(3);
+    await new Promise(r => setTimeout(r, 500));
+    setProcessingStep(4);
+
+    onAnalyze(extractedText);
+  };
+
+  const handleRemove = () => {
+    setFile(null);
+    setExtractedText("");
+    setProcessingStep(0);
+    setError(null);
   };
 
   return (
@@ -83,32 +129,8 @@ const ResumeUpload = ({ onAnalyze }: ResumeUploadProps) => {
                   <span className="font-semibold text-lg">{file.name}</span>
                 </div>
                 <p className="text-muted-foreground mb-6">
-                  {(file.size / 1024).toFixed(1)} KB • Ready for analysis
+                  {(file.size / 1024).toFixed(1)} KB • Paste resume content below
                 </p>
-                <div className="flex gap-3 justify-center">
-                  <Button 
-                    variant="hero" 
-                    size="lg" 
-                    onClick={handleAnalyze}
-                    disabled={isAnalyzing}
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      "Analyze Resume"
-                    )}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    onClick={() => setFile(null)}
-                  >
-                    Remove
-                  </Button>
-                </div>
               </div>
             ) : (
               <>
@@ -119,13 +141,13 @@ const ResumeUpload = ({ onAnalyze }: ResumeUploadProps) => {
                   Drag and drop your resume here
                 </p>
                 <p className="text-muted-foreground mb-6">
-                  Supports PDF and DOCX files up to 10MB
+                  Or paste your resume content in the text area below
                 </p>
                 <label>
                   <input
                     type="file"
                     className="hidden"
-                    accept=".pdf,.docx,.doc"
+                    accept=".pdf,.docx,.doc,.txt"
                     onChange={handleFileSelect}
                   />
                   <Button variant="glass" size="lg" asChild>
@@ -136,14 +158,70 @@ const ResumeUpload = ({ onAnalyze }: ResumeUploadProps) => {
             )}
           </div>
 
+          {/* Resume text area */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium mb-2 text-muted-foreground">
+              Resume Content <span className="text-primary">*</span>
+            </label>
+            <textarea
+              ref={textareaRef}
+              value={extractedText}
+              onChange={(e) => {
+                setExtractedText(e.target.value);
+                setError(null);
+              }}
+              placeholder="Paste your resume content here... Include your skills, experience, education, and any relevant projects."
+              className="w-full h-48 p-4 rounded-xl border border-border bg-card/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Tip: Copy-paste your resume text for best results. Include skills, experience, education, and projects.
+            </p>
+          </div>
+
+          {error && (
+            <div className="mt-4 flex items-center gap-2 text-destructive">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="mt-6 flex gap-3 justify-center">
+            <Button 
+              variant="hero" 
+              size="lg" 
+              onClick={handleAnalyze}
+              disabled={isAnalyzing || !extractedText.trim()}
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Analyzing with AI...
+                </>
+              ) : (
+                "Analyze Resume"
+              )}
+            </Button>
+            {(file || extractedText) && (
+              <Button 
+                variant="outline" 
+                size="lg"
+                onClick={handleRemove}
+                disabled={isAnalyzing}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+
           {/* Processing steps indicator */}
           {isAnalyzing && (
             <div className="mt-8 glass-card rounded-xl p-6 animate-fade-in">
               <div className="space-y-4">
-                <ProcessStep step={1} label="Parsing resume structure" active />
-                <ProcessStep step={2} label="Extracting skills & experience" />
-                <ProcessStep step={3} label="Running ML prediction model" />
-                <ProcessStep step={4} label="Generating explanations" />
+                <ProcessStep step={1} label="Parsing resume structure" active={processingStep >= 1} completed={processingStep > 1} />
+                <ProcessStep step={2} label="Extracting skills & experience" active={processingStep >= 2} completed={processingStep > 2} />
+                <ProcessStep step={3} label="Running AI prediction model" active={processingStep >= 3} completed={processingStep > 3} />
+                <ProcessStep step={4} label="Generating explanations & roadmap" active={processingStep >= 4} completed={false} />
               </div>
             </div>
           )}
@@ -153,13 +231,19 @@ const ResumeUpload = ({ onAnalyze }: ResumeUploadProps) => {
   );
 };
 
-const ProcessStep = ({ step, label, active = false }: { step: number; label: string; active?: boolean }) => (
-  <div className={`flex items-center gap-4 ${active ? "opacity-100" : "opacity-40"}`}>
-    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${active ? "bg-gradient-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
-      {step}
+const ProcessStep = ({ step, label, active = false, completed = false }: { step: number; label: string; active?: boolean; completed?: boolean }) => (
+  <div className={`flex items-center gap-4 transition-opacity ${active ? "opacity-100" : "opacity-40"}`}>
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+      completed 
+        ? "bg-primary text-primary-foreground" 
+        : active 
+          ? "bg-gradient-primary text-primary-foreground" 
+          : "bg-secondary text-muted-foreground"
+    }`}>
+      {completed ? <CheckCircle2 className="w-4 h-4" /> : step}
     </div>
     <span className={active ? "text-foreground" : "text-muted-foreground"}>{label}</span>
-    {active && <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />}
+    {active && !completed && <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />}
   </div>
 );
 
