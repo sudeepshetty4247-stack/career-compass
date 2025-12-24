@@ -1,6 +1,8 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { extractTextFromPDF } from "@/lib/pdfParser";
+import { toast } from "sonner";
 
 interface ResumeUploadProps {
   onAnalyze: (resumeText: string) => void;
@@ -13,6 +15,7 @@ const ResumeUpload = ({ onAnalyze, isAnalyzing }: ResumeUploadProps) => {
   const [extractedText, setExtractedText] = useState<string>("");
   const [processingStep, setProcessingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [isParsingPDF, setIsParsingPDF] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -31,8 +34,23 @@ const ResumeUpload = ({ onAnalyze, isAnalyzing }: ResumeUploadProps) => {
       return await file.text();
     }
     
-    // For other files, we'll need the user to paste text
-    // In a real app, you'd use a PDF parser library
+    // For PDF files, use PDF.js
+    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith('.pdf')) {
+      setIsParsingPDF(true);
+      try {
+        const text = await extractTextFromPDF(file);
+        toast.success("PDF parsed successfully!");
+        return text;
+      } catch (error) {
+        toast.error("Failed to parse PDF. Please paste your resume text instead.");
+        return "";
+      } finally {
+        setIsParsingPDF(false);
+      }
+    }
+    
+    // For other files (docx, doc), we'll need the user to paste text
+    toast.info("For DOCX/DOC files, please copy-paste the content into the text area.");
     return "";
   };
 
@@ -119,7 +137,15 @@ const ResumeUpload = ({ onAnalyze, isAnalyzing }: ResumeUploadProps) => {
             onDragOver={handleDrag}
             onDrop={handleDrop}
           >
-            {file ? (
+            {isParsingPDF ? (
+              <div className="animate-fade-in">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-primary mx-auto mb-6 flex items-center justify-center">
+                  <Loader2 className="w-10 h-10 text-primary-foreground animate-spin" />
+                </div>
+                <p className="text-lg font-medium mb-2">Parsing PDF...</p>
+                <p className="text-muted-foreground">Extracting text from your resume</p>
+              </div>
+            ) : file ? (
               <div className="animate-scale-in">
                 <div className="w-20 h-20 rounded-2xl bg-gradient-primary mx-auto mb-6 flex items-center justify-center">
                   <FileText className="w-10 h-10 text-primary-foreground" />
@@ -129,7 +155,7 @@ const ResumeUpload = ({ onAnalyze, isAnalyzing }: ResumeUploadProps) => {
                   <span className="font-semibold text-lg">{file.name}</span>
                 </div>
                 <p className="text-muted-foreground mb-6">
-                  {(file.size / 1024).toFixed(1)} KB • Paste resume content below
+                  {(file.size / 1024).toFixed(1)} KB • {extractedText ? "Text extracted successfully" : "Paste resume content below"}
                 </p>
               </div>
             ) : (
@@ -140,14 +166,17 @@ const ResumeUpload = ({ onAnalyze, isAnalyzing }: ResumeUploadProps) => {
                 <p className="text-lg font-medium mb-2">
                   Drag and drop your resume here
                 </p>
-                <p className="text-muted-foreground mb-6">
+                <p className="text-muted-foreground mb-2">
+                  Supports <span className="text-primary font-medium">PDF</span> and text files
+                </p>
+                <p className="text-sm text-muted-foreground mb-6">
                   Or paste your resume content in the text area below
                 </p>
                 <label>
                   <input
                     type="file"
                     className="hidden"
-                    accept=".pdf,.docx,.doc,.txt"
+                    accept=".pdf,.txt"
                     onChange={handleFileSelect}
                   />
                   <Button variant="glass" size="lg" asChild>
@@ -174,7 +203,7 @@ const ResumeUpload = ({ onAnalyze, isAnalyzing }: ResumeUploadProps) => {
               className="w-full h-48 p-4 rounded-xl border border-border bg-card/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              Tip: Copy-paste your resume text for best results. Include skills, experience, education, and projects.
+              Tip: Upload a PDF for automatic text extraction, or copy-paste your resume text for best results.
             </p>
           </div>
 
@@ -191,7 +220,7 @@ const ResumeUpload = ({ onAnalyze, isAnalyzing }: ResumeUploadProps) => {
               variant="hero" 
               size="lg" 
               onClick={handleAnalyze}
-              disabled={isAnalyzing || !extractedText.trim()}
+              disabled={isAnalyzing || !extractedText.trim() || isParsingPDF}
             >
               {isAnalyzing ? (
                 <>
@@ -207,7 +236,7 @@ const ResumeUpload = ({ onAnalyze, isAnalyzing }: ResumeUploadProps) => {
                 variant="outline" 
                 size="lg"
                 onClick={handleRemove}
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || isParsingPDF}
               >
                 Clear
               </Button>
