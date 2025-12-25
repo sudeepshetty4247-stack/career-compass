@@ -65,11 +65,13 @@ export const useResumeAnalysis = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastResumeText, setLastResumeText] = useState<string | null>(null);
   const { toast } = useToast();
 
   const analyzeResume = async (resumeText: string) => {
     setIsAnalyzing(true);
     setError(null);
+    setLastResumeText(resumeText);
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('analyze-resume', {
@@ -105,9 +107,15 @@ export const useResumeAnalysis = () => {
     }
   };
 
+  const setResultFromHistory = (analysisResult: AnalysisResult) => {
+    setResult(analysisResult);
+    setError(null);
+  };
+
   const reset = () => {
     setResult(null);
     setError(null);
+    setLastResumeText(null);
   };
 
   return {
@@ -115,6 +123,8 @@ export const useResumeAnalysis = () => {
     isAnalyzing,
     result,
     error,
-    reset
+    reset,
+    lastResumeText,
+    setResultFromHistory,
   };
 };
