@@ -8,17 +8,19 @@ import ExplainableAI from "@/components/ExplainableAI";
 import CareerRoadmap from "@/components/CareerRoadmap";
 import AnalysisHistory from "@/components/AnalysisHistory";
 import Footer from "@/components/Footer";
+import PDFExport from "@/components/PDFExport";
 import { useResumeAnalysis, AnalysisResult } from "@/hooks/useResumeAnalysis";
 import { useAnalysisHistory } from "@/hooks/useAnalysisHistory";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Save } from "lucide-react";
+import { Save, History } from "lucide-react";
 
 const Index = () => {
   const { analyzeResume, isAnalyzing, result, reset, lastResumeText, setResultFromHistory } = useResumeAnalysis();
-  const { saveAnalysis, refreshHistory } = useAnalysisHistory();
+  const { saveAnalysis, refreshHistory, history } = useAnalysisHistory();
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Reset saved state when result changes
   useEffect(() => {
@@ -26,6 +28,7 @@ const Index = () => {
   }, [result]);
 
   const handleAnalyze = async (resumeText: string) => {
+    setShowHistory(false);
     const analysisResult = await analyzeResume(resumeText);
     if (analysisResult) {
       setTimeout(() => {
@@ -49,6 +52,7 @@ const Index = () => {
   const handleLoadFromHistory = (analysisResult: AnalysisResult) => {
     setResultFromHistory(analysisResult);
     setIsSaved(true); // Already saved since it's from history
+    setShowHistory(false);
     setTimeout(() => {
       const element = document.getElementById("prediction");
       if (element) {
@@ -60,7 +64,15 @@ const Index = () => {
   const handleReset = () => {
     reset();
     setIsSaved(false);
+    setShowHistory(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const toggleHistory = () => {
+    setShowHistory(!showHistory);
+    if (!showHistory) {
+      refreshHistory();
+    }
   };
 
   return (
@@ -69,8 +81,24 @@ const Index = () => {
       <Hero />
       <ResumeUpload onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
       
-      {/* Show history for logged-in users */}
+      {/* History toggle button for logged-in users */}
       {user && !result && (
+        <div className="container px-4 py-6">
+          <div className="max-w-5xl mx-auto">
+            <Button
+              onClick={toggleHistory}
+              variant={showHistory ? "default" : "outline"}
+              className="gap-2"
+            >
+              <History className="w-4 h-4" />
+              {showHistory ? "Hide History" : `View History ${history.length > 0 ? `(${history.length})` : ""}`}
+            </Button>
+          </div>
+        </div>
+      )}
+      
+      {/* Show history when toggled */}
+      {user && !result && showHistory && (
         <AnalysisHistory onLoadAnalysis={handleLoadFromHistory} />
       )}
       
@@ -84,6 +112,9 @@ const Index = () => {
           {/* Action buttons */}
           <div className="container px-4 pb-12">
             <div className="max-w-5xl mx-auto flex flex-wrap justify-center gap-4">
+              {/* PDF Export button */}
+              <PDFExport data={result} />
+              
               {user && !isSaved && lastResumeText && (
                 <Button
                   onClick={handleSaveAnalysis}
