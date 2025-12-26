@@ -13,11 +13,14 @@ const Footer = () => {
             <span className="font-display font-bold text-xl">CareerAI</span>
           </div>
 
-          {/* Links */}
-          <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <span>Career Intelligence System</span>
-            <span className="hidden md:inline">•</span>
-            <span>ML & Explainable AI</span>
+          {/* Built by */}
+          <div className="flex flex-col items-center gap-1 text-center">
+            <span className="text-sm font-medium text-foreground">
+              Built by Sudesh, Sudeep, Shankar & Vipin
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Career Intelligence System • ML & Explainable AI
+            </span>
           </div>
 
           {/* Social */}
@@ -35,7 +38,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>Built with Machine Learning, NLP & Explainable AI</p>
+          <p>© {new Date().getFullYear()} CareerAI. All rights reserved.</p>
         </div>
       </div>
     </footer>
