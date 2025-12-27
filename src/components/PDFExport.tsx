@@ -35,39 +35,54 @@ const PDFExport = ({ data }: PDFExportProps) => {
       // Dynamic import for html2pdf
       const html2pdf = (await import("html2pdf.js")).default;
 
-      // Create a styled HTML content for PDF
+      // Create styled HTML content
       const content = generatePDFContent(data);
 
-      // Create a visible container for proper rendering
+      // Create container that's actually visible for rendering
       const container = document.createElement("div");
+      container.id = "pdf-export-container";
       container.innerHTML = content;
-      container.style.position = "absolute";
-      container.style.left = "-9999px";
-      container.style.top = "0";
-      container.style.width = "210mm"; // A4 width
-      container.style.minHeight = "297mm"; // A4 height
-      container.style.background = "white";
-      container.style.color = "#000";
-      container.style.padding = "20px";
+      
+      // Make it visible but fixed off-screen for proper rendering
+      Object.assign(container.style, {
+        position: "fixed",
+        left: "0",
+        top: "0",
+        width: "794px", // A4 width in pixels at 96dpi
+        minHeight: "1123px", // A4 height
+        background: "#ffffff",
+        color: "#000000",
+        zIndex: "-9999",
+        opacity: "1",
+        visibility: "visible",
+        overflow: "visible"
+      });
+      
       document.body.appendChild(container);
 
-      // Wait for content to fully render
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for DOM to fully render
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const opt = {
-        margin: [15, 15, 15, 15],
+        margin: 10,
         filename: `CareerAI_Analysis_${new Date().toISOString().split("T")[0]}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
+        image: { type: "jpeg", quality: 0.95 },
         html2canvas: { 
-          scale: 2, 
+          scale: 2,
           useCORS: true,
-          logging: false,
-          allowTaint: true,
+          logging: true, // Enable for debugging
+          letterRendering: true,
           backgroundColor: "#ffffff",
-          windowWidth: 800
+          width: 794,
+          windowWidth: 794
         },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        jsPDF: { 
+          unit: "px", 
+          format: [794, 1123], 
+          orientation: "portrait",
+          hotfixes: ["px_scaling"]
+        },
+        pagebreak: { mode: ["css", "legacy"], avoid: ".no-break" }
       };
 
       await html2pdf().set(opt).from(container).save();
