@@ -1,7 +1,29 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Brain, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowRight, Brain, Sparkles, TrendingUp, Play } from "lucide-react";
 
-const Hero = () => {
+interface HeroProps {
+  onAnalyzeClick?: () => void;
+  onDemoClick?: () => void;
+}
+
+const Hero = ({ onAnalyzeClick, onDemoClick }: HeroProps) => {
+  const scrollToUpload = () => {
+    const uploadSection = document.getElementById('resume-upload-section');
+    if (uploadSection) {
+      uploadSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    onAnalyzeClick?.();
+  };
+
+  const handleDemoClick = () => {
+    // Scroll to features/stats section to show what the app can do
+    const statsSection = document.getElementById('features-section');
+    if (statsSection) {
+      statsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    onDemoClick?.();
+  };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-hero">
       {/* Animated background elements */}
@@ -47,12 +69,13 @@ const Hero = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <Button variant="hero" size="xl">
+            <Button variant="hero" size="xl" onClick={scrollToUpload}>
               Analyze My Resume
               <ArrowRight className="w-5 h-5" />
             </Button>
-            <Button variant="glass" size="xl">
-              See Demo
+            <Button variant="glass" size="xl" onClick={handleDemoClick}>
+              <Play className="w-5 h-5" />
+              See How It Works
             </Button>
           </div>
 

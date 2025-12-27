@@ -79,7 +79,46 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <Hero />
-      <ResumeUpload onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+      
+      {/* Resume Upload Section */}
+      <div id="resume-upload-section">
+        <ResumeUpload onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+      </div>
+      
+      {/* Features Section for "See How It Works" */}
+      <section id="features-section" className="container px-4 py-16">
+        <div className="max-w-5xl mx-auto text-center mb-12">
+          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
+            How It <span className="text-gradient-primary">Works</span>
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Upload your resume and get AI-powered career insights with explainable predictions
+          </p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="glass-card p-6 rounded-2xl text-center">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">📄</span>
+            </div>
+            <h3 className="font-display font-semibold mb-2">1. Upload Resume</h3>
+            <p className="text-sm text-muted-foreground">Upload your PDF resume and our AI will extract key information</p>
+          </div>
+          <div className="glass-card p-6 rounded-2xl text-center">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🧠</span>
+            </div>
+            <h3 className="font-display font-semibold mb-2">2. AI Analysis</h3>
+            <p className="text-sm text-muted-foreground">ML algorithms analyze your skills, experience, and career potential</p>
+          </div>
+          <div className="glass-card p-6 rounded-2xl text-center">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🎯</span>
+            </div>
+            <h3 className="font-display font-semibold mb-2">3. Get Insights</h3>
+            <p className="text-sm text-muted-foreground">Receive career predictions, skill gaps, and a personalized roadmap</p>
+          </div>
+        </div>
+      </section>
       
       {/* History toggle button for logged-in users */}
       {user && !result && (
