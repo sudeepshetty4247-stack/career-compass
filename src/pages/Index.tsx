@@ -7,15 +7,18 @@ import SkillAnalysis from "@/components/SkillAnalysis";
 import ExplainableAI from "@/components/ExplainableAI";
 import CareerRoadmap from "@/components/CareerRoadmap";
 import AnalysisHistory from "@/components/AnalysisHistory";
+import ResumeComparison from "@/components/ResumeComparison";
+import JobRecommendations from "@/components/JobRecommendations";
+import ATSScore from "@/components/ATSScore";
 import Footer from "@/components/Footer";
 import PDFExport from "@/components/PDFExport";
 import SocialShare from "@/components/SocialShare";
 import { FullAnalysisSkeleton } from "@/components/LoadingSkeleton";
 import { useResumeAnalysis, AnalysisResult } from "@/hooks/useResumeAnalysis";
-import { useAnalysisHistory } from "@/hooks/useAnalysisHistory";
+import { useAnalysisHistory, AnalysisHistoryItem } from "@/hooks/useAnalysisHistory";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Save, History } from "lucide-react";
+import { Save, History, GitCompare } from "lucide-react";
 
 const Index = () => {
   const { analyzeResume, isAnalyzing, result, reset, lastResumeText, setResultFromHistory } = useResumeAnalysis();
@@ -23,9 +26,11 @@ const Index = () => {
   const { user } = useAuth();
   const [isSaved, setIsSaved] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [compareWith, setCompareWith] = useState<AnalysisHistoryItem | null>(null);
 
   useEffect(() => {
     setIsSaved(false);
+    setCompareWith(null);
   }, [result]);
 
   const handleAnalyze = async (resumeText: string) => {
@@ -41,7 +46,10 @@ const Index = () => {
   const handleSaveAnalysis = async () => {
     if (result && lastResumeText) {
       const saved = await saveAnalysis(lastResumeText, result);
-      if (saved) setIsSaved(true);
+      if (saved) {
+        setIsSaved(true);
+        refreshHistory();
+      }
     }
   };
 
@@ -54,10 +62,23 @@ const Index = () => {
     }, 100);
   };
 
+  const handleCompare = () => {
+    if (history.length > 0 && result) {
+      // Find a different analysis to compare with
+      const previousAnalysis = history.find(h => {
+        const historyResult = h.analysis_result as AnalysisResult;
+        return historyResult.readinessScore !== result.readinessScore || 
+               historyResult.skills?.length !== result.skills?.length;
+      }) || history[0];
+      setCompareWith(previousAnalysis);
+    }
+  };
+
   const handleReset = () => {
     reset();
     setIsSaved(false);
     setShowHistory(false);
+    setCompareWith(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -119,9 +140,13 @@ const Index = () => {
       {result && !isAnalyzing && (
         <div className="animate-fade-in">
           <CareerPrediction data={result} />
+          <ATSScore data={result} />
+          <JobRecommendations data={result} />
           <SkillAnalysis data={result} />
           <ExplainableAI data={result} />
           <CareerRoadmap data={result} />
+          
+          {compareWith && <ResumeComparison current={result} previous={compareWith} />}
           
           <div className="container px-4 pb-12">
             <div className="max-w-5xl mx-auto flex flex-wrap justify-center gap-4">
@@ -138,6 +163,12 @@ const Index = () => {
               )}
               {user && isSaved && (
                 <span className="px-4 py-2 text-sm text-primary bg-primary/10 rounded-xl">✓ Saved</span>
+              )}
+              {user && history.length > 0 && !compareWith && (
+                <Button onClick={handleCompare} variant="outline" className="gap-2">
+                  <GitCompare className="w-4 h-4" aria-hidden="true" />
+                  Compare with Previous
+                </Button>
               )}
               <Button onClick={handleReset} variant="outline">Analyze Another Resume</Button>
             </div>
