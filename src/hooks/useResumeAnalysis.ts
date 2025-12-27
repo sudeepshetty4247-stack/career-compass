@@ -79,10 +79,12 @@ export const useResumeAnalysis = () => {
       });
 
       if (fnError) {
-        throw new Error(fnError.message || 'Failed to analyze resume');
+        const details = (fnError as any)?.details ?? (fnError as any)?.context ?? null;
+        const extra = details ? ` (${typeof details === 'string' ? details : JSON.stringify(details)})` : '';
+        throw new Error(`${fnError.message || 'Failed to analyze resume'}${extra}`);
       }
 
-      if (data.error) {
+      if (data?.error) {
         throw new Error(data.error);
       }
 
