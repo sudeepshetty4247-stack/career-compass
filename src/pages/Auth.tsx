@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Loader2, Mail, Lock, ArrowRight, Sparkles, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Mail, Lock, ArrowRight, Sparkles, ArrowLeft, Eye, EyeOff, User } from 'lucide-react';
 import { z } from 'zod';
 
 const authSchema = z.object({
@@ -32,9 +32,10 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string; fullName?: string }>({});
   
   const { signIn, signUp, resetPassword, updatePassword, user, loading } = useAuth();
   const navigate = useNavigate();
@@ -97,7 +98,7 @@ const Auth = () => {
           navigate('/');
         }
       } else if (mode === 'signup') {
-        const { error } = await signUp(email, password);
+        const { error } = await signUp(email, password, fullName || undefined);
         if (error) {
           if (error.message.includes('already registered')) {
             toast.error('This email is already registered. Please sign in instead.');
@@ -184,6 +185,28 @@ const Auth = () => {
           <h2 className="sr-only">{getTitle()}</h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Full Name field - only for signup */}
+            {mode === 'signup' && (
+              <div>
+                <label htmlFor="fullName" className="block text-sm font-medium text-muted-foreground mb-2">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="John Doe"
+                    className="pl-10 h-12 bg-secondary/50 border-border focus:border-primary"
+                    disabled={isSubmitting}
+                    autoComplete="name"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Email field - not shown for reset */}
             {mode !== 'reset' && (
               <div>
