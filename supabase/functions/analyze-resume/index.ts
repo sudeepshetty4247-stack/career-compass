@@ -6,7 +6,21 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const systemPrompt = `You are an expert career counselor and resume analyst.
+// Simplified prompt for faster local generation
+const localSystemPrompt = `Analyze resume. Return ONLY valid JSON:
+{
+  "skills": [{"name": "X", "category": "technical", "proficiency": 80}],
+  "experience": {"level": "mid", "years": 3, "summary": "Brief summary"},
+  "education": {"degree": "X", "field": "X", "institution": "X"},
+  "careerPredictions": [{"domain": "X", "probability": 60, "description": "X", "topRoles": ["X"]}],
+  "skillGaps": [{"skill": "X", "importance": "high", "reason": "X"}],
+  "readinessScore": 70,
+  "explanation": {"summary": "X", "strengths": ["X"], "improvements": ["X"], "topContributingFactors": [{"factor": "X", "impact": "positive", "weight": 30}]},
+  "roadmap": {"shortTerm": [{"goal": "X", "duration": "1 month", "priority": "high"}], "midTerm": [{"goal": "X", "duration": "6 months", "priority": "medium"}], "longTerm": [{"goal": "X", "duration": "1 year", "priority": "low"}]}
+}
+Respond with JSON only. No markdown.`;
+
+const cloudSystemPrompt = `You are an expert career counselor and resume analyst.
 
 Analyze the given resume text carefully and respond ONLY with valid JSON in the exact schema below.
 Do not add any explanations. Do not wrap in markdown. Output JSON only.
@@ -60,14 +74,12 @@ JSON schema:
 }`;
 
 function extractJson(text: string) {
-  // Prefer fenced blocks if model returns them
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   const candidate = (fenced?.[1] ?? text).trim();
 
   try {
     return JSON.parse(candidate);
   } catch {
-    // Fallback: grab the first {...} block
     const start = candidate.indexOf("{");
     const end = candidate.lastIndexOf("}");
     if (start === -1 || end === -1 || end <= start) throw new Error("AI response was not valid JSON");
@@ -76,51 +88,60 @@ function extractJson(text: string) {
   }
 }
 
-// Call local Ollama instance
+// Call local Ollama instance with configurable settings
 async function callOllama(resumeText: string, ollamaUrl: string, model: string): Promise<string> {
-  console.log(`Calling Ollama at ${ollamaUrl} with model ${model}`);
+  // Configurable via environment variables with safe defaults for slow machines
+  const maxResumeLength = parseInt(Deno.env.get("OLLAMA_MAX_RESUME_CHARS") || "2000");
+  const timeoutMs = parseInt(Deno.env.get("OLLAMA_TIMEOUT_MS") || "120000"); // 2 min default
+  const numPredict = parseInt(Deno.env.get("OLLAMA_NUM_PREDICT") || "500"); // Smaller for speed
   
-  // Trim resume text to avoid very long prompts that slow down generation
-  const maxResumeLength = 4000;
+  console.log(`Ollama config: model=${model}, timeout=${timeoutMs}ms, numPredict=${numPredict}, maxResume=${maxResumeLength}`);
+  
+  // Trim resume to keep prompt short
   const trimmedResume = resumeText.length > maxResumeLength 
-    ? resumeText.substring(0, maxResumeLength) + '\n[Resume truncated for processing...]'
+    ? resumeText.substring(0, maxResumeLength) + '\n[truncated]'
     : resumeText;
   
-  // Use AbortController for timeout
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   
   try {
+    console.log(`Calling Ollama at ${ollamaUrl} with model ${model}...`);
+    const startTime = Date.now();
+    
     const response = await fetch(`${ollamaUrl}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
         model: model,
-        prompt: `${systemPrompt}\n\nRESUME:\n${trimmedResume}`,
+        prompt: `${localSystemPrompt}\n\nRESUME:\n${trimmedResume}`,
         stream: false,
         options: {
-          temperature: 0.4,
-          num_predict: 1000, // Reduced from 2000 for faster generation
+          temperature: 0.3,
+          num_predict: numPredict,
         },
       }),
     });
     
     clearTimeout(timeoutId);
+    const elapsed = Date.now() - startTime;
+    console.log(`Ollama responded in ${elapsed}ms`);
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
-      console.error("Ollama error:", response.status, errorText);
+      console.error("Ollama HTTP error:", response.status, errorText);
       throw new Error(`Ollama error: ${response.status} - ${errorText || "Unknown error"}`);
     }
 
     const data = await response.json();
-    console.log("Ollama response received");
+    console.log("Ollama generation complete");
     return data.response;
   } catch (err: unknown) {
     clearTimeout(timeoutId);
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('Ollama request timed out (>90s). Try a faster model like phi3 or tinyllama.');
+      const timeoutSec = Math.round(timeoutMs / 1000);
+      throw new Error(`OLLAMA_TIMEOUT: Ollama took >${timeoutSec}s. Switch to tinyllama model or increase OLLAMA_TIMEOUT_MS.`);
     }
     throw err;
   }
@@ -139,7 +160,7 @@ async function callLovableAI(resumeText: string, apiKey: string): Promise<string
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: cloudSystemPrompt },
         { role: "user", content: `RESUME:\n${resumeText}` },
       ],
     }),
@@ -175,7 +196,7 @@ async function callGemini(resumeText: string, apiKey: string): Promise<string> {
         contents: [
           {
             role: "user",
-            parts: [{ text: systemPrompt }, { text: `RESUME:\n${resumeText}` }],
+            parts: [{ text: cloudSystemPrompt }, { text: `RESUME:\n${resumeText}` }],
           },
         ],
         generationConfig: {
@@ -211,49 +232,79 @@ serve(async (req) => {
 
     // Environment variables
     const USE_LOCAL_OLLAMA = Deno.env.get("USE_LOCAL_OLLAMA") === "true";
+    const ALLOW_CLOUD_FALLBACK = Deno.env.get("ALLOW_CLOUD_FALLBACK") === "true";
     const OLLAMA_URL = Deno.env.get("OLLAMA_URL") || "http://host.docker.internal:11434";
-    const OLLAMA_MODEL = Deno.env.get("OLLAMA_MODEL") || "llama3.2";
+    const OLLAMA_MODEL = Deno.env.get("OLLAMA_MODEL") || "tinyllama"; // Default to fastest model
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("GOOGLE_AI_API_KEY");
 
     let content: string | undefined;
     let providerUsed = "";
+    let ollamaError: Error | null = null;
 
-    // Priority: 1. Ollama (if enabled) → 2. Lovable AI → 3. Gemini
-    try {
-      if (USE_LOCAL_OLLAMA) {
+    // Priority: 1. Ollama (if enabled) → 2. Cloud fallback (if allowed) → 3. Error
+    if (USE_LOCAL_OLLAMA) {
+      try {
         providerUsed = "Ollama";
         content = await callOllama(resumeText, OLLAMA_URL, OLLAMA_MODEL);
-      } else if (LOVABLE_API_KEY) {
-        providerUsed = "Lovable AI";
-        content = await callLovableAI(resumeText, LOVABLE_API_KEY);
-      } else if (GEMINI_API_KEY) {
-        providerUsed = "Gemini";
-        content = await callGemini(resumeText, GEMINI_API_KEY);
-      } else {
-        throw new Error(
-          "No AI provider configured. Set USE_LOCAL_OLLAMA=true for local Ollama, " +
-          "or provide LOVABLE_API_KEY or GEMINI_API_KEY for cloud AI."
-        );
+      } catch (err) {
+        ollamaError = err instanceof Error ? err : new Error(String(err));
+        console.error("Ollama failed:", ollamaError.message);
+        
+        // Check if cloud fallback is allowed
+        if (ALLOW_CLOUD_FALLBACK && (LOVABLE_API_KEY || GEMINI_API_KEY)) {
+          console.log("Falling back to cloud AI...");
+        } else {
+          // No fallback - return specific error with instructions
+          const isTimeout = ollamaError.message.includes("OLLAMA_TIMEOUT");
+          const errorMsg = isTimeout 
+            ? `Local AI is too slow. Try: 1) Switch to tinyllama model, 2) Warm up with 'ollama run ${OLLAMA_MODEL} "hi"', or 3) Set ALLOW_CLOUD_FALLBACK=true`
+            : ollamaError.message;
+          
+          return new Response(JSON.stringify({ 
+            error: errorMsg,
+            ollamaModel: OLLAMA_MODEL,
+            suggestion: "Run: ollama pull tinyllama && set OLLAMA_MODEL=tinyllama"
+          }), {
+            status: 504,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
-    } catch (err: unknown) {
-      // Handle rate limit / payment errors from Lovable AI
-      if (typeof err === "object" && err !== null && "status" in err) {
-        const typedErr = err as { status: number; message: string };
-        return new Response(JSON.stringify({ error: typedErr.message }), {
-          status: typedErr.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw err;
     }
-
-    console.log(`Successfully got response from ${providerUsed}`);
+    
+    // Cloud fallback or primary cloud
+    if (!content) {
+      try {
+        if (LOVABLE_API_KEY) {
+          providerUsed = "Lovable AI";
+          content = await callLovableAI(resumeText, LOVABLE_API_KEY);
+        } else if (GEMINI_API_KEY) {
+          providerUsed = "Gemini";
+          content = await callGemini(resumeText, GEMINI_API_KEY);
+        } else if (!USE_LOCAL_OLLAMA) {
+          throw new Error(
+            "No AI provider configured. Set USE_LOCAL_OLLAMA=true for local Ollama, " +
+            "or provide LOVABLE_API_KEY or GEMINI_API_KEY for cloud AI."
+          );
+        }
+      } catch (err: unknown) {
+        if (typeof err === "object" && err !== null && "status" in err) {
+          const typedErr = err as { status: number; message: string };
+          return new Response(JSON.stringify({ error: typedErr.message }), {
+            status: typedErr.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw err;
+      }
+    }
 
     if (!content || typeof content !== "string") {
       throw new Error(`Empty response from ${providerUsed}`);
     }
 
+    console.log(`Successfully got response from ${providerUsed}`);
     const analysis = extractJson(content);
 
     return new Response(JSON.stringify(analysis), {

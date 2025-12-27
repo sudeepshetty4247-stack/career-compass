@@ -115,11 +115,20 @@ export const useResumeAnalysis = () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(message);
+      
+      // Provide helpful error messages based on error type
+      let description = message;
+      if (message.includes('OLLAMA_TIMEOUT') || message.includes('too slow')) {
+        description = "Local AI is too slow. Switch to 'tinyllama' model or enable cloud fallback.";
+      } else if (message.includes('status code (0)') || message.includes('Failed to fetch')) {
+        description = "Cannot connect to AI. Make sure Ollama is running: 'ollama serve'";
+      } else if (message.includes('model') && message.includes('not found')) {
+        description = "Model not found. Run: ollama pull tinyllama";
+      }
+      
       toast({
         title: "Analysis Failed",
-        description: message.includes('timed out') 
-          ? "AI took too long. Try using a faster model locally (phi3, tinyllama)."
-          : message,
+        description,
         variant: "destructive",
       });
       return null;
