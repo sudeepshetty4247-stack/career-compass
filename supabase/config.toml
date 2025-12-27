@@ -32,3 +32,6 @@ enable_confirmations = false
 
 [functions.analyze-resume]
 verify_jwt = false
+
+[functions.health-check]
+verify_jwt = false
