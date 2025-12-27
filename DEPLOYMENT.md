@@ -1,177 +1,277 @@
 # Career Prediction AI - Deployment Guide
 
-This guide will help you deploy this project to your own infrastructure.
-
-## Prerequisites
-
-1. **Node.js** (v18 or higher)
-2. **Google AI API Key** - Get it from [Google AI Studio](https://aistudio.google.com/apikey)
-3. **Supabase Account** - Create one at [supabase.com](https://supabase.com)
-4. **Supabase CLI** - Install from [supabase.com/docs/guides/cli](https://supabase.com/docs/guides/cli)
+This guide covers **two deployment options**:
+1. **100% Local with Ollama** (Recommended - no API keys, no blocking)
+2. **Cloud deployment** with Vercel + Supabase
 
 ---
 
-## Step 1: Get Google AI API Key
+## Option 1: 100% Local with Ollama (Recommended)
 
-1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
-2. Sign in with your Google account
-3. Click "Create API Key"
-4. Copy the API key (you'll need it later)
+This setup runs everything on your computer with no external AI dependencies.
+
+### Prerequisites
+- Node.js 18+
+- Docker Desktop
+- 8GB+ RAM recommended
+
+### Step 1: Install Ollama
+
+**Windows:**
+1. Download from: https://ollama.com/download/windows
+2. Run the installer
+3. Verify: `ollama --version`
+
+**macOS:**
+```bash
+brew install ollama
+```
+
+**Linux:**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+### Step 2: Download AI Model
+
+```bash
+# Recommended (4GB download, good balance)
+ollama pull llama3.2
+
+# Or for better quality (8GB download)
+ollama pull llama3.1
+```
+
+### Step 3: Verify Ollama is Running
+
+```bash
+ollama list
+# Should show: llama3.2 or llama3.1
+```
+
+Ollama server runs at `http://localhost:11434`
+
+### Step 4: Install Supabase CLI
+
+```bash
+npm install -g supabase
+```
+
+### Step 5: Start Local Supabase
+
+```bash
+cd your-project-folder
+supabase start
+```
+
+**Save the output!** You'll need:
+- `API URL` → `http://localhost:54321`
+- `anon key` → long string starting with `eyJ...`
+
+### Step 6: Create Local Environment File
+
+Create `supabase/.env.local`:
+```env
+USE_LOCAL_OLLAMA=true
+OLLAMA_URL=http://host.docker.internal:11434
+OLLAMA_MODEL=llama3.2
+```
+
+### Step 7: Serve Edge Function
+
+```bash
+supabase functions serve analyze-resume --env-file supabase/.env.local
+```
+
+### Step 8: Configure Frontend
+
+Create `.env.local` in project root:
+```env
+VITE_SUPABASE_URL=http://localhost:54321
+VITE_SUPABASE_PUBLISHABLE_KEY=<anon key from step 5>
+```
+
+### Step 9: Run Frontend
+
+```bash
+npm install
+npm run dev
+```
+
+### Step 10: Test
+
+Open `http://localhost:8080`, upload a resume, and analyze!
 
 ---
 
-## Step 2: Create Supabase Project
+## Architecture (Local)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Your Computer                         │
+├─────────────────────────────────────────────────────────┤
+│  ┌──────────────┐      ┌─────────────────┐              │
+│  │   Browser    │─────▶│  Vite Dev Server │              │
+│  │ localhost:   │      │  localhost:8080  │              │
+│  │   8080       │      └────────┬─────────┘              │
+│  └──────────────┘               │                        │
+│                                 ▼                        │
+│                    ┌─────────────────────┐               │
+│                    │  Supabase (Docker)  │               │
+│                    │  localhost:54321    │               │
+│                    │  ┌───────────────┐  │               │
+│                    │  │ Edge Function │──┼───┐           │
+│                    │  │analyze-resume │  │   │           │
+│                    │  └───────────────┘  │   │           │
+│                    └─────────────────────┘   │           │
+│                                              ▼           │
+│                              ┌───────────────────┐       │
+│                              │      Ollama       │       │
+│                              │ localhost:11434   │       │
+│                              │    llama3.2       │       │
+│                              └───────────────────┘       │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Troubleshooting (Local Setup)
+
+### "Connection refused" to Ollama
+
+1. Check Ollama is running:
+   ```bash
+   curl http://localhost:11434/api/version
+   ```
+
+2. For Docker-based Supabase, use:
+   ```env
+   OLLAMA_URL=http://host.docker.internal:11434
+   ```
+
+3. Check firewall isn't blocking port 11434
+
+### "Model not found"
+
+```bash
+ollama pull llama3.2
+```
+
+### Slow First Response
+
+- First request loads model into memory (~30s)
+- Subsequent requests are faster (~5-15s)
+
+### Out of Memory
+
+Use smaller model:
+```bash
+ollama pull phi3  # Only 2GB
+```
+
+---
+
+## Option 2: Cloud Deployment
+
+### Prerequisites
+
+1. **Node.js** (v18+)
+2. **Supabase Account** - [supabase.com](https://supabase.com)
+3. **Google AI API Key** - [Google AI Studio](https://aistudio.google.com/apikey)
+
+### Step 1: Create Supabase Project
 
 1. Go to [supabase.com](https://supabase.com) and sign in
 2. Click "New Project"
-3. Fill in project details:
-   - **Name**: `career-prediction-ai` (or your preferred name)
-   - **Database Password**: Create a strong password
-   - **Region**: Choose the closest to your users
-4. Click "Create new project" and wait for it to be ready
+3. Set project name and password
+4. Choose region closest to your users
+5. Wait for project creation
+
+### Step 2: Get Supabase Credentials
+
+Go to **Settings** → **API** and copy:
+- **Project URL** (e.g., `https://xxxxx.supabase.co`)
+- **Anon Key**
+- **Project Reference ID**
+
+### Step 3: Configure Environment
+
+Create `.env`:
+```env
+VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key_here
+VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_ID
+```
+
+### Step 4: Deploy Edge Function
+
+```bash
+# Login
+supabase login
+
+# Link project
+supabase link --project-ref YOUR_PROJECT_ID
+
+# Add secrets
+supabase secrets set USE_LOCAL_OLLAMA=false
+supabase secrets set GEMINI_API_KEY=your_google_ai_api_key
+
+# Deploy
+supabase functions deploy analyze-resume
+```
+
+### Step 5: Deploy Frontend to Vercel
+
+1. Push code to GitHub
+2. Import to [Vercel](https://vercel.com)
+3. Add environment variables
+4. Deploy!
 
 ---
 
-## Step 3: Get Supabase Credentials
+## AI Provider Priority
 
-Once your project is created:
+The edge function tries providers in this order:
 
-1. Go to **Settings** → **API**
-2. Copy these values:
-   - **Project URL** (e.g., `https://xxxxx.supabase.co`)
-   - **Anon/Public Key** (under "Project API keys")
-   - **Project Reference ID** (the `xxxxx` part of your URL)
-
----
-
-## Step 4: Configure Environment Variables
-
-1. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Edit `.env` with your Supabase values:
-   ```env
-   VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
-   VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key_here
-   VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_ID
-   ```
+| Priority | Provider | When Used |
+|----------|----------|-----------|
+| 1 | Ollama | `USE_LOCAL_OLLAMA=true` |
+| 2 | Lovable AI | `LOVABLE_API_KEY` exists (auto in Lovable Cloud) |
+| 3 | Gemini | `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` exists |
 
 ---
 
-## Step 5: Update Supabase Config
-
-1. Open `supabase/config.toml`
-2. Replace `YOUR_PROJECT_ID` with your actual project reference ID
-
----
-
-## Step 6: Deploy Edge Function
-
-1. Install Supabase CLI if you haven't:
-   ```bash
-   npm install -g supabase
-   ```
-
-2. Login to Supabase:
-   ```bash
-   supabase login
-   ```
-
-3. Link your project:
-   ```bash
-   supabase link --project-ref YOUR_PROJECT_ID
-   ```
-
-4. Add the Google AI API key as a secret:
-   ```bash
-   supabase secrets set GOOGLE_AI_API_KEY=your_google_ai_api_key_here
-   ```
-
-5. Deploy the edge function:
-   ```bash
-   supabase functions deploy analyze-resume
-   ```
-
----
-
-## Step 7: Deploy Frontend
-
-### Option A: Vercel (Recommended)
-
-1. Push your code to GitHub
-2. Go to [vercel.com](https://vercel.com)
-3. Import your repository
-4. Add environment variables:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY`
-   - `VITE_SUPABASE_PROJECT_ID`
-5. Deploy!
-
-### Option B: Netlify
-
-1. Push your code to GitHub
-2. Go to [netlify.com](https://netlify.com)
-3. Import your repository
-4. Add environment variables in Site Settings → Environment Variables
-5. Deploy!
-
-### Option C: Manual Build
-
-1. Build the project:
-   ```bash
-   npm install
-   npm run build
-   ```
-
-2. The `dist` folder contains your static site - upload it to any static hosting service
-
----
-
-## Troubleshooting
+## Common Issues
 
 ### "GOOGLE_AI_API_KEY is not configured"
-- Make sure you've set the secret: `supabase secrets set GOOGLE_AI_API_KEY=your_key`
-- Redeploy the function: `supabase functions deploy analyze-resume`
+```bash
+supabase secrets set GOOGLE_AI_API_KEY=your_key
+supabase functions deploy analyze-resume
+```
 
-### "Invalid API key"
-- Verify your Google AI API key is correct
-- Make sure the key has the Generative Language API enabled
+### "API key blocked" / 403 errors
+→ Use Ollama local setup instead (Option 1)
 
 ### CORS Errors
-- The edge function already has CORS headers configured
-- Make sure your frontend is calling the correct Supabase URL
+→ Edge function has CORS configured; verify correct Supabase URL
 
 ### "Failed to invoke function"
-- Check that the edge function is deployed: `supabase functions list`
-- Check function logs: `supabase functions logs analyze-resume`
+```bash
+supabase functions list
+supabase functions logs analyze-resume
+```
 
 ---
 
 ## Project Structure
 
 ```
-├── src/                    # Frontend React application
+├── src/                        # Frontend React app
 ├── supabase/
-│   ├── config.toml         # Supabase configuration
+│   ├── config.toml             # Supabase config
+│   ├── .env.local.example      # Local env template
 │   └── functions/
-│       └── analyze-resume/ # Edge function for AI analysis
-├── .env.example            # Environment variables template
-└── DEPLOYMENT.md           # This file
+│       └── analyze-resume/     # AI edge function
+├── .env.example                # Env template
+└── DEPLOYMENT.md               # This file
 ```
-
----
-
-## Support
-
-If you encounter issues:
-1. Check the edge function logs: `supabase functions logs analyze-resume`
-2. Verify all environment variables are set correctly
-3. Ensure your Google AI API key has sufficient quota
-
----
-
-## License
-
-This project is open source and available under the MIT License.

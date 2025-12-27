@@ -76,6 +76,105 @@ function extractJson(text: string) {
   }
 }
 
+// Call local Ollama instance
+async function callOllama(resumeText: string, ollamaUrl: string, model: string): Promise<string> {
+  console.log(`Calling Ollama at ${ollamaUrl} with model ${model}`);
+  
+  const response = await fetch(`${ollamaUrl}/api/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: model,
+      prompt: `${systemPrompt}\n\nRESUME:\n${resumeText}`,
+      stream: false,
+      options: {
+        temperature: 0.4,
+        num_predict: 2000,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    console.error("Ollama error:", response.status, errorText);
+    throw new Error(`Ollama error: ${response.status} - ${errorText || "Unknown error"}`);
+  }
+
+  const data = await response.json();
+  console.log("Ollama response received");
+  return data.response;
+}
+
+// Call Lovable AI gateway
+async function callLovableAI(resumeText: string, apiKey: string): Promise<string> {
+  console.log("Calling Lovable AI gateway");
+  
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `RESUME:\n${resumeText}` },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    console.error("Lovable AI error:", response.status, errorText);
+    
+    if (response.status === 429) {
+      throw { status: 429, message: "Rate limit exceeded. Please try again in a moment." };
+    }
+    if (response.status === 402) {
+      throw { status: 402, message: "AI credits exhausted. Please add credits to your Lovable AI usage." };
+    }
+    throw new Error(`Lovable AI error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data?.choices?.[0]?.message?.content;
+}
+
+// Call Gemini API directly
+async function callGemini(resumeText: string, apiKey: string): Promise<string> {
+  console.log("Calling Gemini API directly");
+  
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: systemPrompt }, { text: `RESUME:\n${resumeText}` }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 2000,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    console.error("Gemini error:", response.status, errorText);
+    throw new Error(`Gemini API error: ${response.status} - ${errorText || "Unknown error"}`);
+  }
+
+  const data = await response.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -89,93 +188,50 @@ serve(async (req) => {
       });
     }
 
-    // Prefer Lovable AI (no user API keys needed in Lovable Cloud). For fully-local dev, we fallback to Gemini if provided.
+    // Environment variables
+    const USE_LOCAL_OLLAMA = Deno.env.get("USE_LOCAL_OLLAMA") === "true";
+    const OLLAMA_URL = Deno.env.get("OLLAMA_URL") || "http://host.docker.internal:11434";
+    const OLLAMA_MODEL = Deno.env.get("OLLAMA_MODEL") || "llama3.2";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? Deno.env.get("GOOGLE_AI_API_KEY");
 
-    if (!LOVABLE_API_KEY && !GEMINI_API_KEY) {
-      throw new Error("No AI key configured (set LOVABLE_API_KEY or GEMINI_API_KEY/GOOGLE_AI_API_KEY)");
-    }
-
     let content: string | undefined;
+    let providerUsed = "";
 
-    if (LOVABLE_API_KEY) {
-      const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `RESUME:\n${resumeText}` },
-          ],
-        }),
-      });
-
-      if (!aiResp.ok) {
-        const t = await aiResp.text().catch(() => "");
-        console.error("AI gateway error:", aiResp.status, t);
-
-        if (aiResp.status === 429) {
-          return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        if (aiResp.status === 402) {
-          return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits to your Lovable AI usage." }), {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
-        return new Response(JSON.stringify({ error: "AI gateway error" }), {
-          status: 500,
+    // Priority: 1. Ollama (if enabled) → 2. Lovable AI → 3. Gemini
+    try {
+      if (USE_LOCAL_OLLAMA) {
+        providerUsed = "Ollama";
+        content = await callOllama(resumeText, OLLAMA_URL, OLLAMA_MODEL);
+      } else if (LOVABLE_API_KEY) {
+        providerUsed = "Lovable AI";
+        content = await callLovableAI(resumeText, LOVABLE_API_KEY);
+      } else if (GEMINI_API_KEY) {
+        providerUsed = "Gemini";
+        content = await callGemini(resumeText, GEMINI_API_KEY);
+      } else {
+        throw new Error(
+          "No AI provider configured. Set USE_LOCAL_OLLAMA=true for local Ollama, " +
+          "or provide LOVABLE_API_KEY or GEMINI_API_KEY for cloud AI."
+        );
+      }
+    } catch (err: unknown) {
+      // Handle rate limit / payment errors from Lovable AI
+      if (typeof err === "object" && err !== null && "status" in err) {
+        const typedErr = err as { status: number; message: string };
+        return new Response(JSON.stringify({ error: typedErr.message }), {
+          status: typedErr.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
-      const data = await aiResp.json();
-      content = data?.choices?.[0]?.message?.content;
-    } else {
-      // Local fallback: direct Gemini call
-      const geminiResp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: systemPrompt }, { text: `RESUME:\n${resumeText}` }],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.4,
-              maxOutputTokens: 2000,
-            },
-          }),
-        },
-      );
-
-      if (!geminiResp.ok) {
-        const t = await geminiResp.text().catch(() => "");
-        console.error("Gemini error:", geminiResp.status, t);
-        return new Response(JSON.stringify({ error: "Gemini API error" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const geminiData = await geminiResp.json();
-      content = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      throw err;
     }
 
-    if (!content || typeof content !== "string") throw new Error("Empty AI response");
+    console.log(`Successfully got response from ${providerUsed}`);
+
+    if (!content || typeof content !== "string") {
+      throw new Error(`Empty response from ${providerUsed}`);
+    }
 
     const analysis = extractJson(content);
 
@@ -193,4 +249,3 @@ serve(async (req) => {
     );
   }
 });
-
