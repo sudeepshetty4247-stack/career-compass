@@ -9,6 +9,8 @@ import CareerRoadmap from "@/components/CareerRoadmap";
 import AnalysisHistory from "@/components/AnalysisHistory";
 import Footer from "@/components/Footer";
 import PDFExport from "@/components/PDFExport";
+import SocialShare from "@/components/SocialShare";
+import { FullAnalysisSkeleton } from "@/components/LoadingSkeleton";
 import { useResumeAnalysis, AnalysisResult } from "@/hooks/useResumeAnalysis";
 import { useAnalysisHistory } from "@/hooks/useAnalysisHistory";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,7 +24,6 @@ const Index = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Reset saved state when result changes
   useEffect(() => {
     setIsSaved(false);
   }, [result]);
@@ -32,10 +33,7 @@ const Index = () => {
     const analysisResult = await analyzeResume(resumeText);
     if (analysisResult) {
       setTimeout(() => {
-        const element = document.getElementById("prediction");
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth" });
-        }
+        document.getElementById("prediction")?.scrollIntoView({ behavior: "smooth" });
       }, 100);
     }
   };
@@ -43,21 +41,16 @@ const Index = () => {
   const handleSaveAnalysis = async () => {
     if (result && lastResumeText) {
       const saved = await saveAnalysis(lastResumeText, result);
-      if (saved) {
-        setIsSaved(true);
-      }
+      if (saved) setIsSaved(true);
     }
   };
 
   const handleLoadFromHistory = (analysisResult: AnalysisResult) => {
     setResultFromHistory(analysisResult);
-    setIsSaved(true); // Already saved since it's from history
+    setIsSaved(true);
     setShowHistory(false);
     setTimeout(() => {
-      const element = document.getElementById("prediction");
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth" });
-      }
+      document.getElementById("prediction")?.scrollIntoView({ behavior: "smooth" });
     }, 100);
   };
 
@@ -70,9 +63,7 @@ const Index = () => {
 
   const toggleHistory = () => {
     setShowHistory(!showHistory);
-    if (!showHistory) {
-      refreshHistory();
-    }
+    if (!showHistory) refreshHistory();
   };
 
   return (
@@ -80,101 +71,75 @@ const Index = () => {
       <Navbar />
       <Hero />
       
-      {/* Resume Upload Section */}
       <div id="resume-upload-section">
         <ResumeUpload onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
       </div>
       
-      {/* Features Section for "See How It Works" */}
-      <section id="features-section" className="container px-4 py-16">
+      <section id="features-section" className="container px-4 py-16" aria-labelledby="how-it-works">
         <div className="max-w-5xl mx-auto text-center mb-12">
-          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
+          <h2 id="how-it-works" className="font-display text-3xl md:text-4xl font-bold mb-4">
             How It <span className="text-gradient-primary">Works</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Upload your resume and get AI-powered career insights with explainable predictions
           </p>
         </div>
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          <div className="glass-card p-6 rounded-2xl text-center">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">📄</span>
+        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto" role="list">
+          {[
+            { emoji: "📄", title: "1. Upload Resume", desc: "Upload your PDF resume and our AI will extract key information" },
+            { emoji: "🧠", title: "2. AI Analysis", desc: "ML algorithms analyze your skills, experience, and career potential" },
+            { emoji: "🎯", title: "3. Get Insights", desc: "Receive career predictions, skill gaps, and a personalized roadmap" }
+          ].map((item, i) => (
+            <div key={i} className="glass-card p-6 rounded-2xl text-center" role="listitem">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl" aria-hidden="true">{item.emoji}</span>
+              </div>
+              <h3 className="font-display font-semibold mb-2">{item.title}</h3>
+              <p className="text-sm text-muted-foreground">{item.desc}</p>
             </div>
-            <h3 className="font-display font-semibold mb-2">1. Upload Resume</h3>
-            <p className="text-sm text-muted-foreground">Upload your PDF resume and our AI will extract key information</p>
-          </div>
-          <div className="glass-card p-6 rounded-2xl text-center">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🧠</span>
-            </div>
-            <h3 className="font-display font-semibold mb-2">2. AI Analysis</h3>
-            <p className="text-sm text-muted-foreground">ML algorithms analyze your skills, experience, and career potential</p>
-          </div>
-          <div className="glass-card p-6 rounded-2xl text-center">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🎯</span>
-            </div>
-            <h3 className="font-display font-semibold mb-2">3. Get Insights</h3>
-            <p className="text-sm text-muted-foreground">Receive career predictions, skill gaps, and a personalized roadmap</p>
-          </div>
+          ))}
         </div>
       </section>
       
-      {/* History toggle button for logged-in users */}
       {user && !result && (
         <div className="container px-4 py-6">
           <div className="max-w-5xl mx-auto">
-            <Button
-              onClick={toggleHistory}
-              variant={showHistory ? "default" : "outline"}
-              className="gap-2"
-            >
-              <History className="w-4 h-4" />
+            <Button onClick={toggleHistory} variant={showHistory ? "default" : "outline"} className="gap-2">
+              <History className="w-4 h-4" aria-hidden="true" />
               {showHistory ? "Hide History" : `View History ${history.length > 0 ? `(${history.length})` : ""}`}
             </Button>
           </div>
         </div>
       )}
       
-      {/* Show history when toggled */}
-      {user && !result && showHistory && (
-        <AnalysisHistory onLoadAnalysis={handleLoadFromHistory} />
-      )}
+      {user && !result && showHistory && <AnalysisHistory onLoadAnalysis={handleLoadFromHistory} />}
       
-      {result && (
+      {isAnalyzing && <FullAnalysisSkeleton />}
+      
+      {result && !isAnalyzing && (
         <div className="animate-fade-in">
           <CareerPrediction data={result} />
           <SkillAnalysis data={result} />
           <ExplainableAI data={result} />
           <CareerRoadmap data={result} />
           
-          {/* Action buttons */}
           <div className="container px-4 pb-12">
             <div className="max-w-5xl mx-auto flex flex-wrap justify-center gap-4">
-              {/* PDF Export button */}
               <PDFExport data={result} />
-              
+              <SocialShare 
+                score={result.readinessScore} 
+                topCareer={result.careerPredictions?.[0]?.domain} 
+              />
               {user && !isSaved && lastResumeText && (
-                <Button
-                  onClick={handleSaveAnalysis}
-                  variant="default"
-                  className="gap-2"
-                >
-                  <Save className="w-4 h-4" />
+                <Button onClick={handleSaveAnalysis} variant="default" className="gap-2">
+                  <Save className="w-4 h-4" aria-hidden="true" />
                   Save to History
                 </Button>
               )}
               {user && isSaved && (
-                <span className="px-4 py-2 text-sm text-primary bg-primary/10 rounded-xl">
-                  ✓ Saved to History
-                </span>
+                <span className="px-4 py-2 text-sm text-primary bg-primary/10 rounded-xl">✓ Saved</span>
               )}
-              <button
-                onClick={handleReset}
-                className="px-6 py-3 rounded-xl border border-border bg-card hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
-              >
-                Analyze Another Resume
-              </button>
+              <Button onClick={handleReset} variant="outline">Analyze Another Resume</Button>
             </div>
           </div>
         </div>
