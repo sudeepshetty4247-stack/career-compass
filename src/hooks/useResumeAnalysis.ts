@@ -68,7 +68,8 @@ export const useResumeAnalysis = () => {
   const [lastResumeText, setLastResumeText] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const analyzeResume = async (resumeText: string) => {
+  const analyzeResume = async (resumeText: string, retryCount = 0) => {
+    const maxRetries = 1;
     setIsAnalyzing(true);
     setError(null);
     setLastResumeText(resumeText);
@@ -81,7 +82,23 @@ export const useResumeAnalysis = () => {
       if (fnError) {
         const details = (fnError as any)?.details ?? (fnError as any)?.context ?? null;
         const extra = details ? ` (${typeof details === 'string' ? details : JSON.stringify(details)})` : '';
-        throw new Error(`${fnError.message || 'Failed to analyze resume'}${extra}`);
+        const errorMsg = fnError.message || 'Failed to analyze resume';
+        
+        // Check for timeout/connection errors and retry once
+        const isTimeoutError = errorMsg.includes('status code') || 
+                               errorMsg.includes('timeout') || 
+                               errorMsg.includes('0)');
+        
+        if (isTimeoutError && retryCount < maxRetries) {
+          console.log(`Retrying analysis (attempt ${retryCount + 2})...`);
+          toast({
+            title: "Retrying...",
+            description: "The AI is taking longer than expected. Retrying once more.",
+          });
+          return analyzeResume(resumeText, retryCount + 1);
+        }
+        
+        throw new Error(`${errorMsg}${extra}`);
       }
 
       if (data?.error) {
@@ -100,7 +117,9 @@ export const useResumeAnalysis = () => {
       setError(message);
       toast({
         title: "Analysis Failed",
-        description: message,
+        description: message.includes('timed out') 
+          ? "AI took too long. Try using a faster model locally (phi3, tinyllama)."
+          : message,
         variant: "destructive",
       });
       return null;

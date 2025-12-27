@@ -80,29 +80,50 @@ function extractJson(text: string) {
 async function callOllama(resumeText: string, ollamaUrl: string, model: string): Promise<string> {
   console.log(`Calling Ollama at ${ollamaUrl} with model ${model}`);
   
-  const response = await fetch(`${ollamaUrl}/api/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: model,
-      prompt: `${systemPrompt}\n\nRESUME:\n${resumeText}`,
-      stream: false,
-      options: {
-        temperature: 0.4,
-        num_predict: 2000,
-      },
-    }),
-  });
+  // Trim resume text to avoid very long prompts that slow down generation
+  const maxResumeLength = 4000;
+  const trimmedResume = resumeText.length > maxResumeLength 
+    ? resumeText.substring(0, maxResumeLength) + '\n[Resume truncated for processing...]'
+    : resumeText;
+  
+  // Use AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout
+  
+  try {
+    const response = await fetch(`${ollamaUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: model,
+        prompt: `${systemPrompt}\n\nRESUME:\n${trimmedResume}`,
+        stream: false,
+        options: {
+          temperature: 0.4,
+          num_predict: 1000, // Reduced from 2000 for faster generation
+        },
+      }),
+    });
+    
+    clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    console.error("Ollama error:", response.status, errorText);
-    throw new Error(`Ollama error: ${response.status} - ${errorText || "Unknown error"}`);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.error("Ollama error:", response.status, errorText);
+      throw new Error(`Ollama error: ${response.status} - ${errorText || "Unknown error"}`);
+    }
+
+    const data = await response.json();
+    console.log("Ollama response received");
+    return data.response;
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Ollama request timed out (>90s). Try a faster model like phi3 or tinyllama.');
+    }
+    throw err;
   }
-
-  const data = await response.json();
-  console.log("Ollama response received");
-  return data.response;
 }
 
 // Call Lovable AI gateway
