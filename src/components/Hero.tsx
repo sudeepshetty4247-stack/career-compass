@@ -95,29 +95,29 @@ const Hero = ({ onAnalyzeClick, onDemoClick }: HeroProps) => {
             </Button>
           </div>
 
-          {/* Stats */}
+          {/* Features - No fake stats */}
           <div 
             className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in" 
             style={{ animationDelay: '0.4s' }}
             role="list"
-            aria-label="Key statistics"
+            aria-label="Key features"
           >
-            <StatCard 
+            <FeatureCard 
               icon={Brain}
-              value="ML-Powered"
-              label="Analysis Engine"
-              ariaLabel="Machine learning powered analysis engine"
+              title="AI Analysis"
+              description="Deep learning models extract skills, experience, and career potential from your resume"
+              ariaLabel="AI-powered resume analysis"
             />
-            <StatCard 
+            <FeatureCard 
               icon={Sparkles}
-              value="Explainable"
-              label="AI Predictions"
+              title="Explainable Results"
+              description="Understand why certain careers are recommended with transparent AI reasoning"
               ariaLabel="Explainable AI predictions"
             />
-            <StatCard 
+            <FeatureCard 
               icon={TrendingUp}
-              value="Personalized"
-              label="Career Roadmaps"
+              title="Career Roadmap"
+              description="Get personalized short, mid, and long-term goals to advance your career"
               ariaLabel="Personalized career roadmaps"
             />
           </div>
@@ -130,31 +130,27 @@ const Hero = ({ onAnalyzeClick, onDemoClick }: HeroProps) => {
   );
 };
 
-const StatCard = ({ 
+const FeatureCard = ({ 
   icon: Icon, 
-  value, 
-  label,
+  title,
+  description,
   ariaLabel 
 }: { 
   icon: React.ElementType; 
-  value: string; 
-  label: string;
+  title: string;
+  description: string;
   ariaLabel?: string;
 }) => (
   <div 
-    className="glass-card rounded-2xl p-6 hover:border-primary/30 transition-all duration-300"
+    className="glass-card rounded-2xl p-6 hover:border-primary/30 transition-all duration-300 text-left"
     role="listitem"
     aria-label={ariaLabel}
   >
-    <div className="flex items-center justify-center gap-3">
-      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-        <Icon className="w-6 h-6 text-primary" aria-hidden="true" />
-      </div>
-      <div className="text-left">
-        <div className="text-3xl font-bold font-display text-gradient-primary">{value}</div>
-        <div className="text-sm text-muted-foreground">{label}</div>
-      </div>
+    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+      <Icon className="w-6 h-6 text-primary" aria-hidden="true" />
     </div>
+    <h3 className="text-lg font-semibold font-display mb-2">{title}</h3>
+    <p className="text-sm text-muted-foreground">{description}</p>
   </div>
 );
 
