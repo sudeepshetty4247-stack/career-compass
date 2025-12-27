@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Brain, Menu, X, User, LogOut } from "lucide-react";
+import { Brain, Menu, X, User, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -14,7 +16,10 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
+
+  const displayName = profile?.full_name || user?.email || 'User';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -92,10 +97,15 @@ const Navbar = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="glass" size="default" className="gap-2">
                     <User className="w-4 h-4" />
-                    <span className="max-w-32 truncate">{user.email}</span>
+                    <span className="max-w-32 truncate">{displayName}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-card border-border">
+                  <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
+                    <Settings className="w-4 h-4" />
+                    Profile Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer">
                     <LogOut className="w-4 h-4" />
                     Sign Out
@@ -165,7 +175,11 @@ const Navbar = () => {
               <div className="border-t border-border pt-4 mt-2">
                 {user ? (
                   <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                    <p className="text-sm text-muted-foreground truncate">{displayName}</p>
+                    <Button variant="outline" size="default" onClick={() => { navigate('/profile'); setIsMobileMenuOpen(false); }} className="w-full gap-2">
+                      <Settings className="w-4 h-4" />
+                      Profile Settings
+                    </Button>
                     <Button variant="outline" size="default" onClick={handleSignOut} className="w-full gap-2">
                       <LogOut className="w-4 h-4" />
                       Sign Out
