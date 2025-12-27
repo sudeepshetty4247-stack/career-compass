@@ -11,7 +11,7 @@ import ResumeComparison from "@/components/ResumeComparison";
 import JobRecommendations from "@/components/JobRecommendations";
 import ATSScore from "@/components/ATSScore";
 import Footer from "@/components/Footer";
-import PDFExport from "@/components/PDFExport";
+
 import SocialShare from "@/components/SocialShare";
 import { FullAnalysisSkeleton } from "@/components/LoadingSkeleton";
 import { useResumeAnalysis, AnalysisResult } from "@/hooks/useResumeAnalysis";
@@ -150,7 +150,7 @@ const Index = () => {
           
           <div className="container px-4 pb-12">
             <div className="max-w-5xl mx-auto flex flex-wrap justify-center gap-4">
-              <PDFExport data={result} />
+              
               <SocialShare 
                 score={result.readinessScore} 
                 topCareer={result.careerPredictions?.[0]?.domain} 
