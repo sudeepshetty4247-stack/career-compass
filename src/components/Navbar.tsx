@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Brain, Menu, X, User, LogOut, Settings, Wrench } from "lucide-react";
+import { Brain, Menu, X, User, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import {
@@ -105,10 +105,6 @@ const Navbar = () => {
                       <Settings className="w-4 h-4" />
                       Profile Settings
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/setup')} className="gap-2 cursor-pointer">
-                      <Wrench className="w-4 h-4" />
-                      System Diagnostics
-                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer">
                     <LogOut className="w-4 h-4" />
@@ -183,10 +179,6 @@ const Navbar = () => {
                     <Button variant="outline" size="default" onClick={() => { navigate('/profile'); setIsMobileMenuOpen(false); }} className="w-full gap-2">
                       <Settings className="w-4 h-4" />
                       Profile Settings
-                    </Button>
-                    <Button variant="outline" size="default" onClick={() => { navigate('/setup'); setIsMobileMenuOpen(false); }} className="w-full gap-2">
-                      <Wrench className="w-4 h-4" />
-                      System Diagnostics
                     </Button>
                     <Button variant="outline" size="default" onClick={handleSignOut} className="w-full gap-2">
                       <LogOut className="w-4 h-4" />
